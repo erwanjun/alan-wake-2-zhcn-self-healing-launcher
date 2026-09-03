@@ -21,6 +21,9 @@ foreach ($required in @('README.md', 'LICENSE', 'VERSION', 'launcher\Setup.ps1',
     if (-not (Test-Path -LiteralPath (Join-Path $root $required) -PathType Leaf)) { $errors.Add("缺少文件：$required") }
 }
 
+$launcherSource = Get-Content -LiteralPath (Join-Path $root 'launcher\Start-AlanWake2-Chinese.ps1') -Raw
+if ($launcherSource -match 'Start-Process\s+-FilePath\s+\$gameExe') { $errors.Add('启动器不得绕过 Epic 直接执行 AlanWake2.exe。') }
+if ($launcherSource -notmatch 'com\.epicgames\.launcher://apps/') { $errors.Add('启动器缺少 Epic Games Launcher URI 启动路径。') }
+
 if ($errors.Count -gt 0) { throw ($errors -join [Environment]::NewLine) }
 Write-Host '仓库结构、脚本语法与发布边界检查通过。'
-

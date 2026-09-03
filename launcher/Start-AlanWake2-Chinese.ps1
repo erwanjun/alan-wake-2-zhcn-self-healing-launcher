@@ -29,6 +29,20 @@ $genericToc = Join-Path $GameRoot 'data_pack2\pc\base-generic.rmdtoc'
 $englishToc = Join-Path $GameRoot 'data_pack2\pc\base-en.rmdtoc'
 $englishPrimaryBlob = Join-Path $GameRoot 'data_pack2\pc\base-en-000.rmdblob'
 $logPath = Join-Path $runtimeRoot 'logs\launcher.log'
+$launcherMutexCreated = $false
+$launcherMutex = [Threading.Mutex]::new($true, 'Local\AlanWake2ChineseSelfHealingLauncher', [ref]$launcherMutexCreated)
+if (-not $launcherMutexCreated) {
+    Write-Host '中文自愈启动器已经在运行，本次重复请求已忽略。'
+    exit 0
+}
+
+function Release-LauncherMutex {
+    if ($launcherMutex) {
+        try { $launcherMutex.ReleaseMutex() } catch {}
+        $launcherMutex.Dispose()
+        $script:launcherMutex = $null
+    }
+}
 
 New-Item -ItemType Directory -Path (Split-Path -Parent $logPath) -Force | Out-Null
 
@@ -316,6 +330,7 @@ function Invoke-ElevatedRepair {
         Join-Path $PSHOME 'powershell.exe'
     }
     $arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`" -GameRoot `"$GameRoot`" -RepairOnly -SkipSelfUpdate -NoElevation"
+    Release-LauncherMutex
     $process = Start-Process -FilePath $pwsh -ArgumentList $arguments -Verb RunAs -Wait -PassThru
     if ($process.ExitCode -ne 0) { throw "Elevated repair exited with code $($process.ExitCode)." }
 }
@@ -362,8 +377,16 @@ function Save-State([string]$LastBackup, [string]$EnglishBlobPath) {
 }
 
 function Start-Game {
-    Write-Log 'Starting Alan Wake 2.'
-    Start-Process -FilePath $gameExe -WorkingDirectory $GameRoot
+    if (Get-Process -Name AlanWake2 -ErrorAction SilentlyContinue) {
+        Write-Log 'Alan Wake 2 is already running; duplicate Epic launch request was skipped.'
+        Release-LauncherMutex
+        return
+    }
+    $encodedInstallPath = (($GameRoot.Replace('\', '/') -split '/') | ForEach-Object { [Uri]::EscapeDataString($_) }) -join '/'
+    $epicLaunchUri = "com.epicgames.launcher://apps/$encodedInstallPath/?action=launch&silent=true"
+    Write-Log 'Requesting Alan Wake 2 launch through Epic Games Launcher.'
+    Start-Process -FilePath $epicLaunchUri
+    Release-LauncherMutex
 }
 
 function Invoke-SelfUpdate {
@@ -380,6 +403,7 @@ function Invoke-SelfUpdate {
         if ($RepairOnly) { $arguments += ' -RepairOnly' }
         if ($AuditOnly) { $arguments += ' -AuditOnly' }
         if ($NoElevation) { $arguments += ' -NoElevation' }
+        Release-LauncherMutex
         Start-Process -FilePath $powershell -ArgumentList $arguments
         exit 0
     }
