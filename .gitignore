@@ -1,0 +1,12 @@
+bin/
+obj/
+dist/
+*.zip
+*.user
+launcher/config.json
+launcher/state.json
+launcher/update-state.json
+launcher/sources/
+launcher/backups/
+launcher/logs/
+

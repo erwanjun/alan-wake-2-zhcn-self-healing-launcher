@@ -1,0 +1,85 @@
+name: 发布版本
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - VERSION
+      - launcher/**
+      - src/**
+      - tests/**
+      - .github/workflows/release.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - name: 检出源码
+        uses: actions/checkout@v4
+
+      - name: 配置 .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: 校验标签与版本
+        id: version
+        shell: powershell
+        run: |
+          $fileVersion = (Get-Content .\VERSION -Raw).Trim()
+          if ($fileVersion -notmatch '^\d+\.\d+\.\d+$') { throw "VERSION 不是有效的语义版本：$fileVersion" }
+          "version=$fileVersion" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+      - name: 检查版本是否已经发布
+        id: existing
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if (Get-Variable PSNativeCommandUseErrorActionPreference -ErrorAction SilentlyContinue) {
+            $PSNativeCommandUseErrorActionPreference = $false
+          }
+          gh release view "v${{ steps.version.outputs.version }}" --repo '${{ github.repository }}' 2>$null | Out-Null
+          if ($LASTEXITCODE -eq 0) { 'exists=true' | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8 }
+          else { 'exists=false' | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8 }
+
+      - name: 编译并检查
+        if: steps.existing.outputs.exists != 'true'
+        shell: powershell
+        run: |
+          dotnet build .\src\RmdtocTool\Aw2Rmdtoc.csproj -c Release
+          .\tests\Test-Repository.ps1
+
+      - name: 组装发布包和校验文件
+        if: steps.existing.outputs.exists != 'true'
+        shell: powershell
+        run: |
+          $version = (Get-Content .\VERSION -Raw).Trim()
+          $asset = "AlanWake2-Chinese-SelfHealing-v$version.zip"
+          New-Item -ItemType Directory -Force -Path .\dist\tools, .\dist\sources\fonts | Out-Null
+          Copy-Item .\launcher\*.ps1 .\dist\
+          Copy-Item .\README.md, .\LICENSE, .\THIRD_PARTY_NOTICES.md, .\VERSION .\dist\
+          Copy-Item .\src\RmdtocTool\bin\Release\net48\Aw2Rmdtoc.dll .\dist\tools\
+          Copy-Item .\src\RmdtocTool\bin\Release\net48\LZ4.dll .\dist\tools\
+          Set-Content .\dist\sources\请把你自己的资源放在这里.txt '请运行 Setup.ps1 选择你合法取得的汉化字符串表和多字体补丁目录。' -Encoding UTF8
+          Compress-Archive -Path .\dist\* -DestinationPath $asset
+          $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $asset).Hash.ToLowerInvariant()
+          "$hash  $asset" | Set-Content .\SHA256SUMS.txt -Encoding ascii
+
+      - name: 创建 GitHub Release
+        if: steps.existing.outputs.exists != 'true'
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v${{ steps.version.outputs.version }}" `
+            --repo '${{ github.repository }}' `
+            --target '${{ github.sha }}' `
+            --title "v${{ steps.version.outputs.version }}" `
+            --generate-notes `
+            .\AlanWake2-Chinese-SelfHealing-v*.zip `
+            .\SHA256SUMS.txt

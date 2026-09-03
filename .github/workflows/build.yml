@@ -1,0 +1,44 @@
+name: 构建与检查
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: 检出源码
+        uses: actions/checkout@v4
+
+      - name: 配置 .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: 编译 RMDTOC 组件
+        run: dotnet build .\src\RmdtocTool\Aw2Rmdtoc.csproj -c Release
+
+      - name: 检查脚本与发布边界
+        shell: powershell
+        run: .\tests\Test-Repository.ps1
+
+      - name: 组装无资源发布包
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force -Path .\dist\tools, .\dist\sources\fonts | Out-Null
+          Copy-Item .\launcher\*.ps1 .\dist\
+          Copy-Item .\README.md, .\LICENSE, .\THIRD_PARTY_NOTICES.md, .\VERSION .\dist\
+          Copy-Item .\src\RmdtocTool\bin\Release\net48\Aw2Rmdtoc.dll .\dist\tools\
+          Copy-Item .\src\RmdtocTool\bin\Release\net48\LZ4.dll .\dist\tools\
+          Set-Content .\dist\sources\请把你自己的资源放在这里.txt '请运行 Setup.ps1 选择你合法取得的汉化字符串表和多字体补丁目录。' -Encoding UTF8
+          Compress-Archive -Path .\dist\* -DestinationPath .\AlanWake2-Chinese-SelfHealing-ci.zip
+
+      - name: 上传 CI 构件
+        uses: actions/upload-artifact@v4
+        with:
+          name: AlanWake2-Chinese-SelfHealing
+          path: .\AlanWake2-Chinese-SelfHealing-ci.zip
+

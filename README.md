@@ -109,4 +109,3 @@ powershell.exe -NoProfile -File .\tests\Test-Repository.ps1
 - 本项目自身代码采用 [MIT License](LICENSE)。第三方说明见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
 欢迎提交 Issue，但请不要上传、附带或请求分发游戏文件、翻译表和字体文件。
-
