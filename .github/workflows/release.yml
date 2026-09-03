@@ -46,6 +46,7 @@ jobs:
           gh release view "v${{ steps.version.outputs.version }}" --repo '${{ github.repository }}' 2>$null | Out-Null
           if ($LASTEXITCODE -eq 0) { 'exists=true' | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8 }
           else { 'exists=false' | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8 }
+          exit 0
 
       - name: 编译并检查
         if: steps.existing.outputs.exists != 'true'
