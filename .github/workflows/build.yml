@@ -22,11 +22,11 @@ jobs:
         run: dotnet build .\src\RmdtocTool\Aw2Rmdtoc.csproj -c Release
 
       - name: 检查脚本与发布边界
-        shell: powershell
+        shell: pwsh
         run: .\tests\Test-Repository.ps1
 
       - name: 组装无资源发布包
-        shell: powershell
+        shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path .\dist\tools, .\dist\sources\fonts | Out-Null
           Copy-Item .\launcher\*.ps1 .\dist\

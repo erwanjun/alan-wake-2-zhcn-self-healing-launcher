@@ -28,7 +28,7 @@ jobs:
 
       - name: 校验标签与版本
         id: version
-        shell: powershell
+        shell: pwsh
         run: |
           $fileVersion = (Get-Content .\VERSION -Raw).Trim()
           if ($fileVersion -notmatch '^\d+\.\d+\.\d+$') { throw "VERSION 不是有效的语义版本：$fileVersion" }
@@ -36,7 +36,7 @@ jobs:
 
       - name: 检查版本是否已经发布
         id: existing
-        shell: powershell
+        shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -49,14 +49,14 @@ jobs:
 
       - name: 编译并检查
         if: steps.existing.outputs.exists != 'true'
-        shell: powershell
+        shell: pwsh
         run: |
           dotnet build .\src\RmdtocTool\Aw2Rmdtoc.csproj -c Release
           .\tests\Test-Repository.ps1
 
       - name: 组装发布包和校验文件
         if: steps.existing.outputs.exists != 'true'
-        shell: powershell
+        shell: pwsh
         run: |
           $version = (Get-Content .\VERSION -Raw).Trim()
           $asset = "AlanWake2-Chinese-SelfHealing-v$version.zip"
@@ -72,7 +72,7 @@ jobs:
 
       - name: 创建 GitHub Release
         if: steps.existing.outputs.exists != 'true'
-        shell: powershell
+        shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -83,3 +83,4 @@ jobs:
             --generate-notes `
             .\AlanWake2-Chinese-SelfHealing-v*.zip `
             .\SHA256SUMS.txt
+
