@@ -5,6 +5,7 @@
 )
 
 $ErrorActionPreference = 'Stop'
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 $currentVersionPath = Join-Path $InstallRoot 'VERSION'
 $statePath = Join-Path $InstallRoot 'update-state.json'
 $state = if (Test-Path -LiteralPath $statePath) { Get-Content -LiteralPath $statePath -Raw | ConvertFrom-Json } else { $null }
@@ -60,4 +61,3 @@ try {
     Write-Warning "自动更新失败：$_"
     exit 1
 }
-
